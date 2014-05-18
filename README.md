@@ -1,7 +1,32 @@
 optionparser
 ============
 
-Ruby (OptionParser) like command line arguments processor
+Ruby (OptionParser) like command line arguments processor.
+
+Installation
+------------
+
+    go get github.com/speedata/optionparser
+
+Usage
+-----
+
+    op := optionparser.NewOptionParser()
+    op.On(arguments ...interface{})
+    ...
+    err := op.Parse()
+
+where `arguments` is one of:
+
+ * `"-a"`: a short argument
+ * `"--argument"`: a long argument
+ * `"--argument [FOO]"` a long argument with an optional parameter
+ * `"--argument FOO"` a long argument with a mandatory parameter
+ * `"Some text"`: The description text for the command line parameter
+ * `&aboolean`: Set the given boolean to `true` if the argument is given, set to `false` if parameter is prefixed with `no-`, such as `--no-foo`.
+ * `&astring`: Set the string to the value of the given parameter
+ * `function`: Call the function. The function must have the signature `func()`.
+ * `amap[string]string`: Set an entry of the map to the value of the given parameter and the key of the argument.
 
 
 Example usage
