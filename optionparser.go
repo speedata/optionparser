@@ -1,3 +1,7 @@
+// Package OptionParser is a library for defining and parsing command line options.
+// It aims to provide a natural language interface for defining short and long
+// parameters and mandatory and optional arguments. It provides the user for nice
+// output formatting on the built in method '--help'.
 package optionparser
 
 import (
@@ -14,7 +18,8 @@ type command struct {
 	helptext string
 }
 
-// The instance of an optionParser
+// OptionParser contains the methods to parse options and the settings to influence the output of --help.
+// Set the Banner for usage info, set Start and Stop for output of the long description text.
 type OptionParser struct {
 	Extra    []string
 	Banner   string
@@ -76,7 +81,7 @@ func wordwrap(s string, wd int) []string {
 	return append(a, j...)
 }
 
-// Analyse the given argument such as '-s' or 'foo=bar' and
+// Analyze the given argument such as '-s' or 'foo=bar' and
 // return an argumentDescription
 func split_on(arg string) *argumentDescription {
 	var (
@@ -148,7 +153,7 @@ func split_on(arg string) *argumentDescription {
 }
 
 // prints the nice help output
-func format_and_output(start int, stop int, dash_short string, short string, comma string, dash_long string, long string, lines []string) {
+func formatAndOutput(start int, stop int, dash_short string, short string, comma string, dash_long string, long string, lines []string) {
 	formatstring := fmt.Sprintf("%%-1s%%-1s%%1s %%-2s%%-%d.%ds %%s\n", start-8, stop-8)
 	// the formatstring now looks like this: "%-1s%-2s%1s %-2s%-22.71s %s"
 	fmt.Printf(formatstring, dash_short, short, comma, dash_long, long, lines[0])
@@ -161,7 +166,6 @@ func format_and_output(start int, stop int, dash_short string, short string, com
 }
 
 func set(obj *allowedOptions, has_no_prefix bool, param string) {
-	// fmt.Printf("set: %+v\n", obj)
 	if obj.function != nil {
 		obj.function(param)
 	}
@@ -203,12 +207,53 @@ func set(obj *allowedOptions, has_no_prefix bool, param string) {
 	}
 }
 
+// Command defines optional arguments to the command line. These are written in a separate section called 'Commands'
+// on --help.
 func (op *OptionParser) Command(cmd string, helptext string) {
 	cmds := command{cmd, helptext}
 	op.commands = append(op.commands, cmds)
 }
 
+// On defines arguments and parameters. Each argument is one of:
+// a short option, such as "-x",
+// a long option, such as "--extra",
+// a long option with an argument such as "--extra FOO" (or "--extra=FOO") for a mandatory argument,
+// a long option with an argument in brackets, e.g. "--extra [FOO]" for a parameter with optional argument,
+// a string (not starting with "-") used for the parameter description, e.g. "This parameter does this and that",
+// a string variable in the form of &str that is used for saving the result of the argument,
+// a variable of type map[string]string which is used to store the result
+// (the parameter name is the key, the value is either the string true or the argument given on the command line)
+// a bool variable (in the form &bool) to hold a boolean value,
+// or a function in the form of func() or in the form of func(string) which gets called if the command line parameter is found.
+//
+// On panics if the user supplies is an type in its argument other the ones given above.
+//
+//     op := optionparser.NewOptionParser()
+//     op.On("-a", "--func", "call myfunc", myfunc)
+//     op.On("--bstring FOO", "set string to FOO", &somestring)
+//     op.On("-c", "set boolean option (try -no-c)", options)
+//     op.On("-d", "--dlong VAL", "set option", options)
+//     op.On("-e", "--elong [VAL]", "set option with optional parameter", options)
+//     op.On("-f", "boolean option", &truefalse)
+// and running the program with --help gives the following output:
+//   $go run main.go --help
+//      Usage: [parameter] command
+//      -h, --help                   Show this help
+//      -a, --func                   call myfunc
+//          --bstring=FOO            set string to FOO
+//      -c                           set boolean option (try -no-c)
+//      -d, --dlong=VAL              set option
+//      -e, --elong[=VAL]            set option with optional parameter
+//      -f                           boolean option
+//
 func (op *OptionParser) On(a ...interface{}) {
+	if op.short == nil {
+		op.short = map[string]*allowedOptions{}
+	}
+	if op.long == nil {
+		op.long = map[string]*allowedOptions{}
+	}
+
 	option := new(allowedOptions)
 	op.options = append(op.options, option)
 	for _, i := range a {
@@ -250,12 +295,13 @@ func (op *OptionParser) On(a ...interface{}) {
 		case map[string]string:
 			option.stringmap = x
 		default:
-			fmt.Printf(" unknown: %#v\n", x)
-
+			panic(fmt.Sprintf("Unknown parameter type: %#v\n", x))
 		}
 	}
 }
 
+// Parse takes the command line arguments as found in os.Args and interprets them. If it finds an unknown option
+// or a missing mandatory argument, it returns an error.
 func (op *OptionParser) Parse() error {
 	i := 1
 	for i < len(os.Args) {
@@ -358,26 +404,25 @@ func (op *OptionParser) Help() {
 			comma = ""
 		}
 		lines := wordwrap(o.helptext, wd)
-		format_and_output(op.Start, op.Stop, dash_short, short, comma, dash_long, long, lines)
+		formatAndOutput(op.Start, op.Stop, dash_short, short, comma, dash_long, long, lines)
 	}
 	if len(op.commands) > 0 {
 		fmt.Println("\nCommands")
 		for _, cmd := range op.commands {
 			lines := wordwrap(cmd.helptext, wd)
-			format_and_output(op.Start, op.Stop, "", "", "", "", cmd.name, lines)
+			formatAndOutput(op.Start, op.Stop, "", "", "", "", cmd.name, lines)
 		}
 	}
 }
 
+// NewOptionParser initializes the OptionParser struct with sane settings for Banner,
+// Start and Stop and adds a "-h", "--help" option for convenience.
 func NewOptionParser() *OptionParser {
 	a := &OptionParser{}
 	a.Extra = []string{}
 	a.Banner = "Usage: [parameter] command"
 	a.Start = 30
 	a.Stop = 79
-	a.short = map[string]*allowedOptions{}
-	a.long = map[string]*allowedOptions{}
-	a.commands = make([]command, 0, 10)
 	a.On("-h", "--help", "Show this help", func() { a.Help(); os.Exit(0) })
 	return a
 }
