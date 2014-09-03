@@ -165,7 +165,7 @@ func formatAndOutput(start int, stop int, dashShort string, short string, comma 
 	}
 }
 
-func set(obj *allowedOptions, has_no_prefix bool, param string) {
+func set(obj *allowedOptions, hasNoPrefix bool, param string) {
 	if obj.function != nil {
 		obj.function(param)
 	}
@@ -186,7 +186,7 @@ func set(obj *allowedOptions, has_no_prefix bool, param string) {
 		if param != "" {
 			value = param
 		} else {
-			if has_no_prefix {
+			if hasNoPrefix {
 				value = "false"
 			} else {
 				value = "true"
@@ -198,7 +198,7 @@ func set(obj *allowedOptions, has_no_prefix bool, param string) {
 		obj.functionNoArgs()
 	}
 	if obj.boolvalue != nil {
-		if has_no_prefix {
+		if hasNoPrefix {
 			*obj.boolvalue = false
 		} else {
 			*obj.boolvalue = true
