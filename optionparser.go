@@ -247,13 +247,6 @@ func (op *OptionParser) Command(cmd string, helptext string) {
 //      -f                           boolean option
 //
 func (op *OptionParser) On(a ...interface{}) {
-	if op.short == nil {
-		op.short = map[string]*allowedOptions{}
-	}
-	if op.long == nil {
-		op.long = map[string]*allowedOptions{}
-	}
-
 	option := new(allowedOptions)
 	op.options = append(op.options, option)
 	for _, i := range a {
@@ -422,6 +415,8 @@ func NewOptionParser() *OptionParser {
 	a.Banner = "Usage: [parameter] command"
 	a.Start = 30
 	a.Stop = 79
+	a.short = map[string]*allowedOptions{}
+	a.long = map[string]*allowedOptions{}
 	a.On("-h", "--help", "Show this help", func() { a.Help(); os.Exit(0) })
 	return a
 }
