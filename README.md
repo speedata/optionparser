@@ -28,6 +28,31 @@ where `arguments` is one of:
  * `function`: Call the function. The function must have the signature `func()`.
  * `amap[string]string`: Set an entry of the map to the value of the given parameter and the key of the argument.
 
+Help usage
+----------
+
+The options `-h` and `--help` are included by default. The example below output this on `cmd -h`:
+
+    Usage: [parameter] command
+    -h, --help                   Show this help
+    -a, --func                   call myfunc
+        --bstring=FOO            set string to FOO
+    -c                           set boolean option (try -no-c)
+    -d, --dlong=VAL              set option
+    -e, --elong[=VAL]            set option with optional parameter
+    -f                           boolean option
+
+    Commands
+          y                      Run command y
+          z                      Run command z
+
+Settings
+--------
+
+After calling  `op := optionparser.NewOptionParser()` you can set `op.Banner` to set the first line of the help output. The default value is `Usage: [parameter] command`.
+
+To control the first and last column of the help output, set `op.Start` and `op.Stop`. The default values are the integer values of 30 and 79.
+
 
 Example usage
 -------------
@@ -80,3 +105,15 @@ is:
     options map[c:true dlong:somevalue elong:x]
     -f true
     Extra: []string{"y", "z"}
+
+
+
+**State**: Actively maintained, and used in production. Without warranty, of course.<br>
+**Maturity level**: 5/5 (works well in all tested repositories, there will be no API change)<br>
+**License**: Free software (MIT License)<br>
+**Installation**: Just run `go get github.com/speedata/optionparser`<br>
+**API documentation**: https://godoc.org/github.com/speedata/optionparser<br>
+**Contact**: <gundlach@speedata.de>, [@speedata](https://twitter.com/speedata)<br>
+**Repository**: https://github.com/speedata/optionparser<br>
+**Dependencies**: None<br>
+**Contribution**: We like to get any kind of feedback (success stories, bug reports, merge requests, ...)
