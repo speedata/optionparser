@@ -5,7 +5,6 @@
 package optionparser
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"regexp"
@@ -309,7 +308,7 @@ func (op *OptionParser) Parse() error {
 			}
 
 			if option == nil {
-				return errors.New("Unknown option " + ret.argument)
+				return fmt.Errorf("Unknown option %s", ret.argument)
 			}
 
 			// the parameter in ret.param is only set by `splitOn()` when used with
@@ -342,7 +341,7 @@ func (op *OptionParser) Parse() error {
 					// parameter expected
 					if !option.optional {
 						// No parameter found but expected
-						return errors.New("Parameter expected but none given " + ret.argument)
+						return fmt.Errorf("Parameter expected but none given %s", ret.argument)
 					}
 				}
 				set(option, ret.negate, "")

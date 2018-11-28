@@ -1,3 +1,6 @@
+[![GoDoc](https://godoc.org/github.com/speedata/optionparser?status.svg)](https://godoc.org/github.com/speedata/optionparser)
+
+
 optionparser
 ============
 
@@ -62,8 +65,9 @@ package main
 
 import (
     "fmt"
-    "github.com/speedata/optionparser"
     "log"
+
+    "github.com/speedata/optionparser"
 )
 
 func myfunc() {
