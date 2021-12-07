@@ -1,10 +1,12 @@
-[![GoDoc](https://godoc.org/github.com/speedata/optionparser?status.svg)](https://godoc.org/github.com/speedata/optionparser)
+[![GoDoc](https://pkg.go.dev/badge/github.com/speedata/optionparser)](https://pkg.go.dev/github.com/speedata/optionparser)
 
 
 optionparser
 ============
 
-Ruby (OptionParser) like command line arguments processor.
+Mature command line arguments processor for Go.
+
+Inspired by Ruby's (OptionParser) command line arguments processor.
 
 Installation
 ------------
@@ -116,8 +118,9 @@ is:
 **Maturity level**: 5/5 (works well in all tested repositories, there will be no API change)<br>
 **License**: Free software (MIT License)<br>
 **Installation**: Just run `go get github.com/speedata/optionparser`<br>
-**API documentation**: https://godoc.org/github.com/speedata/optionparser<br>
+**API documentation**: https://pkg.go.dev/github.com/speedata/optionparser<br>
 **Contact**: <gundlach@speedata.de>, [@speedata](https://twitter.com/speedata)<br>
 **Repository**: https://github.com/speedata/optionparser<br>
 **Dependencies**: None<br>
 **Contribution**: We like to get any kind of feedback (success stories, bug reports, merge requests, ...)
+
