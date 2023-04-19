@@ -1,7 +1,7 @@
-// Package optionparser is a library for defining and parsing command line options.
-// It aims to provide a natural language interface for defining short and long
-// parameters and mandatory and optional arguments. It provides the user for nice
-// output formatting on the built in method '--help'.
+// Package optionparser is a library for defining and parsing command line
+// options. It aims to provide a natural language interface for defining short
+// and long parameters and mandatory and optional arguments. It provides the
+// user for nice output formatting on the built in method '--help'.
 package optionparser
 
 import (
@@ -17,8 +17,9 @@ type command struct {
 	helptext string
 }
 
-// OptionParser contains the methods to parse options and the settings to influence the output of --help.
-// Set the Banner for usage info, set Start and Stop for output of the long description text.
+// OptionParser contains the methods to parse options and the settings to
+// influence the output of --help. Set the Banner for usage info, set Start and
+// Stop for output of the long description text.
 type OptionParser struct {
 	Extra    []string
 	Banner   string
@@ -49,6 +50,7 @@ type allowedOptions struct {
 	boolvalue      *bool
 	stringvalue    *string
 	stringmap      map[string]string
+	stringslice    *[]string
 	helptext       string
 }
 
@@ -65,7 +67,7 @@ func wordwrap(s string, wd int) []string {
 	}
 
 	// Otherwise, we return the first part
-	// split at the last occurence of space before wd
+	// split at the last occurrence of space before wd
 	stop := strings.LastIndex(s[0:wd], " ")
 
 	// no space found in the next wd characters, impossible to split
@@ -153,13 +155,19 @@ func splitOn(arg string) *argumentDescription {
 
 // prints the nice help output
 func formatAndOutput(start int, stop int, dashShort string, short string, comma string, dashLong string, long string, lines []string) {
-	formatstring := fmt.Sprintf("%%-1s%%-1s%%1s %%-2s%%-%d.%ds %%s\n", start-8, stop-8)
-	// the formatstring now looks like this: "%-1s%-2s%1s %-2s%-22.71s %s"
-	fmt.Printf(formatstring, dashShort, short, comma, dashLong, long, lines[0])
+	if long == "" && len(short) > 2 {
+		formatString := fmt.Sprintf("%%-1s%%-%d.%ds %%s\n", start-3, stop-3)
+		// the formatString now looks like this: "%-1s%-2s%1s %-2s%-22.71s %s"
+		fmt.Printf(formatString, dashShort, short, lines[0])
+	} else {
+		formatString := fmt.Sprintf("%%-1s%%-1s%%1s %%-2s%%-%d.%ds %%s\n", start-8, stop-8)
+		// the formatString now looks like this: "%-1s%-2s%1s %-2s%-22.71s %s"
+		fmt.Printf(formatString, dashShort, short, comma, dashLong, long, lines[0])
+	}
 	if len(lines) > 0 {
-		formatstring = fmt.Sprintf("%%%ds%%s\n", start-1)
+		formatString := fmt.Sprintf("%%%ds%%s\n", start-1)
 		for i := 1; i < len(lines); i++ {
-			fmt.Printf(formatstring, " ", lines[i])
+			fmt.Printf(formatString, " ", lines[i])
 		}
 	}
 }
@@ -193,6 +201,12 @@ func set(obj *allowedOptions, hasNoPrefix bool, param string) {
 		}
 		obj.stringmap[name] = value
 	}
+	if obj.stringslice != nil {
+		eachParam := strings.Split(param, ",")
+		for _, v := range eachParam {
+			*obj.stringslice = append(*obj.stringslice, v)
+		}
+	}
 	if obj.functionNoArgs != nil {
 		obj.functionNoArgs()
 	}
@@ -206,45 +220,49 @@ func set(obj *allowedOptions, hasNoPrefix bool, param string) {
 	}
 }
 
-// Command defines optional arguments to the command line. These are written in a separate section called 'Commands'
-// on --help.
+// Command defines optional arguments to the command line. These are written in
+// a separate section called 'Commands' on --help.
 func (op *OptionParser) Command(cmd string, helptext string) {
 	cmds := command{cmd, helptext}
 	op.commands = append(op.commands, cmds)
 }
 
 // On defines arguments and parameters. Each argument is one of:
-// a short option, such as "-x",
-// a long option, such as "--extra",
-// a long option with an argument such as "--extra FOO" (or "--extra=FOO") for a mandatory argument,
-// a long option with an argument in brackets, e.g. "--extra [FOO]" for a parameter with optional argument,
-// a string (not starting with "-") used for the parameter description, e.g. "This parameter does this and that",
-// a string variable in the form of &str that is used for saving the result of the argument,
-// a variable of type map[string]string which is used to store the result
-// (the parameter name is the key, the value is either the string true or the argument given on the command line)
-// a bool variable (in the form &bool) to hold a boolean value,
-// or a function in the form of func() or in the form of func(string) which gets called if the command line parameter is found.
+//   - a short option, such as "-x",
+//   - a long option, such as "--extra",
+//   - a long option with an argument such as "--extra FOO" (or "--extra=FOO") for a mandatory argument,
+//   - a long option with an argument in brackets, e.g. "--extra [FOO]" for a parameter with optional argument,
+//   - a string (not starting with "-") used for the parameter description, e.g. "This parameter does this and that",
+//   - a string variable in the form of &str that is used for saving the result of the argument,
+//   - a variable of type map[string]string which is used to store the result (the parameter name is the key, the value is either the string true or the argument given on the command line)
+//   - a variable of type *[]string which gets a comma separated list of values,
+//   - a bool variable (in the form &bool) to hold a boolean value, or
+//   - a function in the form of func() or in the form of func(string) which gets called if the command line parameter is found.
 //
-// On panics if the user supplies is an type in its argument other the ones given above.
+// On panics if the user supplies is an type in its argument other the ones
+// given above.
 //
-//     op := optionparser.NewOptionParser()
-//     op.On("-a", "--func", "call myfunc", myfunc)
-//     op.On("--bstring FOO", "set string to FOO", &somestring)
-//     op.On("-c", "set boolean option (try -no-c)", options)
-//     op.On("-d", "--dlong VAL", "set option", options)
-//     op.On("-e", "--elong [VAL]", "set option with optional parameter", options)
-//     op.On("-f", "boolean option", &truefalse)
+//	op := optionparser.NewOptionParser()
+//	op.On("-a", "--func", "call myfunc", myfunc)
+//	op.On("--bstring FOO", "set string to FOO", &somestring)
+//	op.On("-c", "set boolean option (try -no-c)", options)
+//	op.On("-d", "--dlong VAL", "set option", options)
+//	op.On("-e", "--elong [VAL]", "set option with optional parameter", options)
+//	op.On("-f", "boolean option", &truefalse)
+//	op.On("-g VALUES", "give multiple values", &stringslice)
+//
 // and running the program with --help gives the following output:
-//   $go run main.go --help
-//      Usage: [parameter] command
-//      -h, --help                   Show this help
-//      -a, --func                   call myfunc
-//          --bstring=FOO            set string to FOO
-//      -c                           set boolean option (try -no-c)
-//      -d, --dlong=VAL              set option
-//      -e, --elong[=VAL]            set option with optional parameter
-//      -f                           boolean option
 //
+//	go run main.go --help
+//	   Usage: [parameter] command
+//	   -h, --help                   Show this help
+//	   -a, --func                   call myfunc
+//	       --bstring=FOO            set string to FOO
+//	   -c                           set boolean option (try -no-c)
+//	   -d, --dlong=VAL              set option
+//	   -e, --elong[=VAL]            set option with optional parameter
+//	   -f                           boolean option
+//	   -g=VALUES                    give multiple values
 func (op *OptionParser) On(a ...interface{}) {
 	option := new(allowedOptions)
 	op.options = append(op.options, option)
@@ -286,8 +304,10 @@ func (op *OptionParser) On(a ...interface{}) {
 			option.stringvalue = x
 		case map[string]string:
 			option.stringmap = x
+		case *[]string:
+			option.stringslice = x
 		default:
-			panic(fmt.Sprintf("Unknown parameter type: %#v\n", x))
+			panic(fmt.Sprintf("Unknown parameter type: %#T\n", x))
 		}
 	}
 }
@@ -312,7 +332,7 @@ func (op *OptionParser) Parse() error {
 			}
 
 			// the parameter in ret.param is only set by `splitOn()` when used with
-			// the equan sign: "--foo=bar". If the user gives a parameter with "--foo bar"
+			// the equal sign: "--foo=bar". If the user gives a parameter with "--foo bar"
 			// it is not in ret.param. So we look at the next thing in our os.Args array
 			// and if its not a parameter (starting with `-`), we take this as the perhaps
 			// optional parameter
@@ -333,7 +353,6 @@ func (op *OptionParser) Parse() error {
 					// so let's push it onto the stack
 					op.Extra = append(op.Extra, ret.param)
 					set(option, ret.negate, "")
-					// fmt.Printf("extra now %#v\n",op.Extra)
 				}
 			} else {
 				// no parameter found
@@ -377,9 +396,9 @@ func (op *OptionParser) Help() {
 			// short
 			if o.param != "" {
 				if o.optional {
-					long = fmt.Sprintf("%s[=%s]", o.long, o.param)
+					short = fmt.Sprintf("%s[=%s]", o.short, o.param)
 				} else {
-					long = fmt.Sprintf("%s=%s", o.long, o.param)
+					short = fmt.Sprintf("%s=%s", o.short, o.param)
 				}
 			}
 		}

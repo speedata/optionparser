@@ -31,7 +31,8 @@ where `arguments` is one of:
  * `&aboolean`: Set the given boolean to `true` if the argument is given, set to `false` if parameter is prefixed with `no-`, such as `--no-foo`.
  * `&astring`: Set the string to the value of the given parameter
  * `function`: Call the function. The function must have the signature `func()`.
- * `amap[string]string`: Set an entry of the map to the value of the given parameter and the key of the argument.
+ * `map[string]string`: Set an entry of the map to the value of the given parameter and the key of the argument.
+ * `[]string` Set the slice values to a comma separated list.
 
 Help usage
 ----------
@@ -62,47 +63,51 @@ To control the first and last column of the help output, set `op.Start` and `op.
 Example usage
 -------------
 
-````go
+```go
 package main
 
 import (
-    "fmt"
-    "log"
+	"fmt"
+	"log"
 
-    "github.com/speedata/optionparser"
+	"github.com/speedata/optionparser"
 )
 
 func myfunc() {
-    fmt.Println("myfunc called")
+	fmt.Println("myfunc called")
 }
 
 func main() {
-    var somestring string
-    var truefalse bool
-    options := make(map[string]string)
+	var somestring string
+	var truefalse bool
+	options := make(map[string]string)
+	stringslice := []string{}
 
-    op := optionparser.NewOptionParser()
-    op.On("-a", "--func", "call myfunc", myfunc)
-    op.On("--bstring FOO", "set string to FOO", &somestring)
-    op.On("-c", "set boolean option (try -no-c)", options)
-    op.On("-d", "--dlong VAL", "set option", options)
-    op.On("-e", "--elong [VAL]", "set option with optional parameter", options)
-    op.On("-f", "boolean option", &truefalse)
-    op.Command("y", "Run command y")
-    op.Command("z", "Run command z")
+	op := optionparser.NewOptionParser()
+	op.On("-a", "--func", "call myfunc", myfunc)
+	op.On("--bstring FOO", "set string to FOO", &somestring)
+	op.On("-c", "set boolean option (try -no-c)", options)
+	op.On("-d", "--dlong VAL", "set option", options)
+	op.On("-e", "--elong [VAL]", "set option with optional parameter", options)
+	op.On("-f", "boolean option", &truefalse)
+	op.On("-g VALUES", "give multiple values", &stringslice)
 
-    err := op.Parse()
-    if err != nil {
-        log.Fatal(err)
-    }
-    fmt.Printf("string `somestring' is now %q\n", somestring)
-    fmt.Printf("options %v\n", options)
-    fmt.Printf("-f %v\n", truefalse)
-    fmt.Printf("Extra: %#v\n", op.Extra)
+	op.Command("y", "Run command y")
+	op.Command("z", "Run command z")
+
+	err := op.Parse()
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("string `somestring' is now %q\n", somestring)
+	fmt.Printf("options %v\n", options)
+	fmt.Printf("-f %v\n", truefalse)
+	fmt.Printf("-g %v\n", stringslice)
+	fmt.Printf("Extra: %#v\n", op.Extra)
 }
-````
+```
 
-and the output of `go run main.go -a --bstring foo -c -d somevalue -e x -f y z`
+and the output of `go run main.go -a --bstring foo -c -d somevalue -e x -f -g a,b,c y z`
 
 is:
 
@@ -110,6 +115,7 @@ is:
     string `somestring' is now "foo"
     options map[c:true dlong:somevalue elong:x]
     -f true
+    -g [a b c]
     Extra: []string{"y", "z"}
 
 
@@ -119,7 +125,7 @@ is:
 **License**: Free software (MIT License)<br>
 **Installation**: Just run `go get github.com/speedata/optionparser`<br>
 **API documentation**: https://pkg.go.dev/github.com/speedata/optionparser<br>
-**Contact**: <gundlach@speedata.de>, [@speedata](https://twitter.com/speedata)<br>
+**Contact**: <gundlach@speedata.de>, [@speedata@typo.social](https://typo.social/@speedata)<br>
 **Repository**: https://github.com/speedata/optionparser<br>
 **Dependencies**: None<br>
 **Contribution**: We like to get any kind of feedback (success stories, bug reports, merge requests, ...)
