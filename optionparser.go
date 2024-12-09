@@ -18,11 +18,12 @@ type command struct {
 }
 
 // OptionParser contains the methods to parse options and the settings to
-// influence the output of --help. Set the Banner for usage info, set Start and
-// Stop for output of the long description text.
+// influence the output of --help. Set the Banner and Coda for usage info, set
+// Start and Stop for output of the long description text.
 type OptionParser struct {
 	Extra    []string
 	Banner   string
+	Coda     string
 	Start    int
 	Stop     int
 	options  []*allowedOptions
@@ -426,6 +427,9 @@ func (op *OptionParser) Help() {
 			lines := wordwrap(cmd.helptext, wd)
 			formatAndOutput(op.Start, op.Stop, "", "", "", "", cmd.name, lines)
 		}
+	}
+	if op.Coda != "" {
+		fmt.Println(op.Coda)
 	}
 }
 

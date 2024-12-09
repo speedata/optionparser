@@ -39,7 +39,7 @@ Help usage
 
 The options `-h` and `--help` are included by default. The example below output this on `cmd -h`:
 
-    Usage: [parameter] command
+    Usage: [awesome-options] <awesome-command>
     -h, --help                   Show this help
     -a, --func                   call myfunc
         --bstring=FOO            set string to FOO
@@ -52,10 +52,12 @@ The options `-h` and `--help` are included by default. The example below output 
           y                      Run command y
           z                      Run command z
 
+    For more information or to contribute, visit https://github.com/speedata/optionparser.
+
 Settings
 --------
 
-After calling  `op := optionparser.NewOptionParser()` you can set `op.Banner` to set the first line of the help output. The default value is `Usage: [parameter] command`.
+After calling  `op := optionparser.NewOptionParser()` you can set `op.Banner` and `op.Coda`. `op.Banner` customizes the first line of the help output. The default value is `Usage: [parameter] command`. By default, `op.Coda` is an empty string. Set a value for `op.Coda` if you want to add text at the end of the help output.
 
 To control the first and last column of the help output, set `op.Start` and `op.Stop`. The default values are the integer values of 30 and 79.
 
@@ -94,6 +96,9 @@ func main() {
 
 	op.Command("y", "Run command y")
 	op.Command("z", "Run command z")
+
+	op.Banner = "Usage: [awesome-options] <awesome-command>"
+	op.Coda = "\nFor more information or to contribute, visit https://github.com/speedata/optionparser."
 
 	err := op.Parse()
 	if err != nil {
