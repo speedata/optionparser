@@ -312,13 +312,13 @@ func (op *OptionParser) On(a ...interface{}) {
 	}
 }
 
-// Parse takes the command line arguments as found in os.Args and interprets them. If it finds an unknown option
-// or a missing mandatory argument, it returns an error.
-func (op *OptionParser) Parse() error {
+// ParseFrom takes a slice of string arguments and interprets them. If it finds an unknown option or a missing
+// mandatory argument, it returns an error.
+func (op *OptionParser) ParseFrom(args []string) error {
 	i := 1
-	for i < len(os.Args) {
-		if isOption(os.Args[i]) {
-			ret := splitOn(os.Args[i])
+	for i < len(args) {
+		if isOption(args[i]) {
+			ret := splitOn(args[i])
 
 			var option *allowedOptions
 			if ret.short {
@@ -333,14 +333,14 @@ func (op *OptionParser) Parse() error {
 
 			// the parameter in ret.param is only set by `splitOn()` when used with
 			// the equal sign: "--foo=bar". If the user gives a parameter with "--foo bar"
-			// it is not in ret.param. So we look at the next thing in our os.Args array
+			// it is not in ret.param. So we look at the next thing in our args array
 			// and if its not a parameter (starting with `-`), we take this as the perhaps
 			// optional parameter
-			if ret.param == "" && i < len(os.Args)-1 && !isOption(os.Args[i+1]) {
+			if ret.param == "" && i < len(args)-1 && !isOption(args[i+1]) {
 				// next could be a parameter
-				ret.param = os.Args[i+1]
-				// delete this possible parameter from the os.Args list
-				os.Args = append(os.Args[:i+1], os.Args[i+2:]...)
+				ret.param = args[i+1]
+				// delete this possible parameter from the args list
+				args = append(args[:i+1], args[i+2:]...)
 
 			}
 
@@ -367,11 +367,17 @@ func (op *OptionParser) Parse() error {
 			}
 		} else {
 			// not an option, we push it onto the extra array
-			op.Extra = append(op.Extra, os.Args[i])
+			op.Extra = append(op.Extra, args[i])
 		}
 		i++
 	}
 	return nil
+}
+
+// Parse takes the command line arguments as found in os.Args and interprets them. If it finds an unknown option
+// or a missing mandatory argument, it returns an error.
+func (op *OptionParser) Parse() error {
+	return op.ParseFrom(os.Args)
 }
 
 // Help prints help text generated from the "On" commands
