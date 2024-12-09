@@ -312,8 +312,8 @@ func (op *OptionParser) On(a ...interface{}) {
 	}
 }
 
-// ParseFrom takes a slice of string arguments and interprets them. If it finds an unknown option or a missing
-// mandatory argument, it returns an error.
+// ParseFrom takes a slice of string arguments and interprets them. If it finds
+// an unknown option or a missing mandatory argument, it returns an error.
 func (op *OptionParser) ParseFrom(args []string) error {
 	i := 1
 	for i < len(args) {
@@ -374,8 +374,9 @@ func (op *OptionParser) ParseFrom(args []string) error {
 	return nil
 }
 
-// Parse takes the command line arguments as found in os.Args and interprets them. If it finds an unknown option
-// or a missing mandatory argument, it returns an error.
+// Parse takes the command line arguments as found in os.Args and interprets
+// them. If it finds an unknown option or a missing mandatory argument, it
+// returns an error.
 func (op *OptionParser) Parse() error {
 	return op.ParseFrom(os.Args)
 }
@@ -431,8 +432,8 @@ func (op *OptionParser) Help() {
 	}
 }
 
-// NewOptionParser initializes the OptionParser struct with sane settings for Banner,
-// Start and Stop and adds a "-h", "--help" option for convenience.
+// NewOptionParser initializes the OptionParser struct with sane settings for
+// Banner, Start and Stop and adds a "-h", "--help" option for convenience.
 func NewOptionParser() *OptionParser {
 	a := &OptionParser{}
 	a.Extra = []string{}
