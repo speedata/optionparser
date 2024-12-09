@@ -203,9 +203,7 @@ func set(obj *allowedOptions, hasNoPrefix bool, param string) {
 	}
 	if obj.stringslice != nil {
 		eachParam := strings.Split(param, ",")
-		for _, v := range eachParam {
-			*obj.stringslice = append(*obj.stringslice, v)
-		}
+		*obj.stringslice = append(*obj.stringslice, eachParam...)
 	}
 	if obj.functionNoArgs != nil {
 		obj.functionNoArgs()
@@ -216,7 +214,6 @@ func set(obj *allowedOptions, hasNoPrefix bool, param string) {
 		} else {
 			*obj.boolvalue = true
 		}
-
 	}
 }
 
@@ -328,7 +325,7 @@ func (op *OptionParser) ParseFrom(args []string) error {
 			}
 
 			if option == nil {
-				return fmt.Errorf("Unknown option %s", ret.argument)
+				return fmt.Errorf("unknown option %s", ret.argument)
 			}
 
 			// the parameter in ret.param is only set by `splitOn()` when used with
@@ -360,7 +357,7 @@ func (op *OptionParser) ParseFrom(args []string) error {
 					// parameter expected
 					if !option.optional {
 						// No parameter found but expected
-						return fmt.Errorf("Parameter expected but none given %s", ret.argument)
+						return fmt.Errorf("parameter expected but none given %s", ret.argument)
 					}
 				}
 				set(option, ret.negate, "")
