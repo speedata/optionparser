@@ -315,7 +315,14 @@ func (op *OptionParser) On(a ...interface{}) {
 func (op *OptionParser) ParseFrom(args []string) error {
 	i := 1
 	for i < len(args) {
-		if isOption(args[i]) {
+		switch {
+		// Users can pass -- to mark the end of flag parsing. This
+		// check must come first since isOption will treat -- as
+		// a malformed option.
+		case args[i] == "--":
+			op.Extra = append(op.Extra, args[i+1:]...)
+			return nil
+		case isOption(args[i]):
 			ret := splitOn(args[i])
 
 			var option *allowedOptions
@@ -339,7 +346,6 @@ func (op *OptionParser) ParseFrom(args []string) error {
 				ret.param = args[i+1]
 				// delete this possible parameter from the args list
 				args = append(args[:i+1], args[i+2:]...)
-
 			}
 
 			if ret.param != "" {
@@ -363,7 +369,7 @@ func (op *OptionParser) ParseFrom(args []string) error {
 				}
 				set(option, ret.negate, "")
 			}
-		} else {
+		default:
 			// not an option, we push it onto the extra array
 			op.Extra = append(op.Extra, args[i])
 		}
