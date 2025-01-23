@@ -55,10 +55,16 @@ type allowedOptions struct {
 	helptext       string
 }
 
+var (
+	isOptionRe     = regexp.MustCompile("^-")
+	doubleDashRe   = regexp.MustCompile("^--")
+	singleDashRe   = regexp.MustCompile("^-[^-]")
+	spaceOrEqualRe = regexp.MustCompile("[ =]")
+)
+
 // Return true if s starts with a dash ('-s' for example)
 func isOption(s string) bool {
-	io := regexp.MustCompile("^-")
-	return io.MatchString(s)
+	return isOptionRe.MatchString(s)
 }
 
 func wordwrap(s string, wd int) []string {
@@ -94,12 +100,9 @@ func splitOn(arg string) *argumentDescription {
 		negate   bool
 	)
 
-	doubleDash := regexp.MustCompile("^--")
-	singleDash := regexp.MustCompile("^-[^-]")
-
-	if doubleDash.MatchString(arg) {
+	if doubleDashRe.MatchString(arg) {
 		short = false
-	} else if singleDash.MatchString(arg) {
+	} else if singleDashRe.MatchString(arg) {
 		short = true
 	} else {
 		panic("can't happen")
@@ -118,8 +121,7 @@ func splitOn(arg string) *argumentDescription {
 		}
 	}
 
-	re := regexp.MustCompile("[ =]")
-	loc := re.FindStringIndex(arg)
+	loc := spaceOrEqualRe.FindStringIndex(arg)
 	if len(loc) == 0 {
 		// no optional parameter, we know everything we need to know
 		return &argumentDescription{
