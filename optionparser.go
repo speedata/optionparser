@@ -56,7 +56,7 @@ type allowedOptions struct {
 }
 
 var (
-	isOptionRe     = regexp.MustCompile("^-")
+	isOptionRe     = regexp.MustCompile("^-.+")
 	doubleDashRe   = regexp.MustCompile("^--")
 	singleDashRe   = regexp.MustCompile("^-[^-]")
 	spaceOrEqualRe = regexp.MustCompile("[ =]")
