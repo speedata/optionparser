@@ -1,15 +1,21 @@
 // Package optionparser is a library for defining and parsing command line
 // options. It aims to provide a natural language interface for defining short
 // and long parameters and mandatory and optional arguments. It provides the
-// user for nice output formatting on the built in method '--help'.
+// user with nice output formatting on the built-in method '--help'.
 package optionparser
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"regexp"
 	"strings"
 )
+
+// ErrHelp is returned by Parse/ParseFrom when the user requested help.
+// Callers can check for this sentinel error and decide whether to os.Exit(0).
+var ErrHelp = errors.New("help requested")
 
 // A command is a non-dash option (with a helptext)
 type command struct {
@@ -30,6 +36,13 @@ type OptionParser struct {
 	short    map[string]*allowedOptions
 	long     map[string]*allowedOptions
 	commands []command
+
+	// Out is the writer Help() and related formatting functions write to.
+	// Defaults to os.Stdout.
+	Out io.Writer
+
+	// internal flag toggled by the default --help/-h handler
+	showHelp bool
 }
 
 type argumentDescription struct {
@@ -56,31 +69,35 @@ type allowedOptions struct {
 }
 
 var (
-	isOptionRe     = regexp.MustCompile("^-.+")
-	doubleDashRe   = regexp.MustCompile("^--")
-	singleDashRe   = regexp.MustCompile("^-[^-]")
-	spaceOrEqualRe = regexp.MustCompile("[ =]")
+	// Example matches: "--", "-x", "-x=1", "-name", but not just "-" and not negative numbers once parsed as extras.
+	isOptionRe     = regexp.MustCompile(`^(?:--.*|-[^-].*)$`)
+	doubleDashRe   = regexp.MustCompile(`^--`)
+	singleDashRe   = regexp.MustCompile(`^-[^-]`)
+	spaceOrEqualRe = regexp.MustCompile(`[ \t=]`)
 )
 
-// Return true if s starts with a dash ('-s' for example)
+// Return true if s starts with a dash in a way that looks like an option.
 func isOption(s string) bool {
 	return isOptionRe.MatchString(s)
 }
 
 func wordwrap(s string, wd int) []string {
+	// defensive
+	if wd <= 0 {
+		return []string{s}
+	}
 	// if the string is shorter than the width, we can just return it
 	if len(s) <= wd {
 		return []string{s}
 	}
 
-	// Otherwise, we return the first part
 	// split at the last occurrence of space before wd
 	stop := strings.LastIndex(s[0:wd], " ")
-
-	// no space found in the next wd characters, impossible to split
+	// no space found in the next wd characters
 	if stop < 0 {
+		// try the first space after wd
 		stop = strings.Index(s, " ")
-		if stop < 0 { // no space found in the remaining characters
+		if stop < 0 { // no space at all
 			return []string{s}
 		}
 	}
@@ -89,7 +106,7 @@ func wordwrap(s string, wd int) []string {
 	return append(a, j...)
 }
 
-// Analyze the given argument such as '-s' or 'foo=bar' and
+// Analyze the given argument such as '-s' or '--foo=bar' and
 // return an argumentDescription
 func splitOn(arg string) *argumentDescription {
 	var (
@@ -100,30 +117,29 @@ func splitOn(arg string) *argumentDescription {
 		negate   bool
 	)
 
-	if doubleDashRe.MatchString(arg) {
+	switch {
+	case doubleDashRe.MatchString(arg):
 		short = false
-	} else if singleDashRe.MatchString(arg) {
+	case singleDashRe.MatchString(arg):
 		short = true
-	} else {
-		panic("can't happen")
+	default:
+		panic("unexpected argument shape")
 	}
 
-	var init int
-	if short {
-		init = 1
-	} else {
+	init := 1
+	if !short {
 		init = 2
 	}
-	if len(arg) > init+2 {
-		if arg[init:init+3] == "no-" {
-			negate = true
-			init = init + 3
-		}
+
+	// Allow negation for long and short options (e.g., --no-foo, -no-f)
+	if len(arg) >= init+3 && arg[init:init+3] == "no-" {
+		negate = true
+		init += 3
 	}
 
 	loc := spaceOrEqualRe.FindStringIndex(arg)
-	if len(loc) == 0 {
-		// no optional parameter, we know everything we need to know
+	if loc == nil {
+		// no parameter delimiter; we know everything we need to know
 		return &argumentDescription{
 			argument: arg[init:],
 			optional: false,
@@ -132,45 +148,57 @@ func splitOn(arg string) *argumentDescription {
 		}
 	}
 
-	// Now we know that the option requires an argument, it could be optional
+	// Now we know that the option may require an argument; it could be optional
 	argument = arg[init:loc[0]]
 	pos := loc[1]
 	length := len(arg)
 
-	if arg[loc[1]:loc[1]+1] == "[" {
+	optional = false
+	if pos < len(arg) && arg[pos] == '[' {
 		pos++
 		length--
 		optional = true
-	} else {
-		optional = false
+	}
+	if pos > length { // be defensive
+		return &argumentDescription{
+			argument: argument,
+			optional: optional,
+			short:    short,
+			negate:   negate,
+		}
 	}
 	param = arg[pos:length]
 
-	a := argumentDescription{
-		argument,
-		param,
-		optional,
-		short,
-		negate,
+	return &argumentDescription{
+		argument: argument,
+		param:    param,
+		optional: optional,
+		short:    short,
+		negate:   negate,
 	}
-	return &a
 }
 
 // prints the nice help output
-func formatAndOutput(start int, stop int, dashShort string, short string, comma string, dashLong string, long string, lines []string) {
+func (op *OptionParser) formatAndOutput(start int, stop int, dashShort string, short string, comma string, dashLong string, long string, lines []string) {
+	// clamp field widths to avoid negative widths
+	pad := func(x int) int {
+		if x < 0 {
+			return 0
+		}
+		return x
+	}
+
 	if long == "" && len(short) > 2 {
-		formatString := fmt.Sprintf("%%-1s%%-%d.%ds %%s\n", start-3, stop-3)
-		// the formatString now looks like this: "%-1s%-2s%1s %-2s%-22.71s %s"
-		fmt.Printf(formatString, dashShort, short, lines[0])
+		formatString := fmt.Sprintf("%%-1s%%-%d.%ds %%s\n", pad(start-3), pad(stop-3))
+		fmt.Fprintf(op.Out, formatString, dashShort, short, lines[0])
 	} else {
-		formatString := fmt.Sprintf("%%-1s%%-1s%%1s %%-2s%%-%d.%ds %%s\n", start-8, stop-8)
-		// the formatString now looks like this: "%-1s%-2s%1s %-2s%-22.71s %s"
-		fmt.Printf(formatString, dashShort, short, comma, dashLong, long, lines[0])
+		formatString := fmt.Sprintf("%%-1s%%-1s%%1s %%-2s%%-%d.%ds %%s\n", pad(start-8), pad(stop-8))
+		fmt.Fprintf(op.Out, formatString, dashShort, short, comma, dashLong, long, lines[0])
 	}
 	if len(lines) > 0 {
-		formatString := fmt.Sprintf("%%%ds%%s\n", start-1)
+		formatString := fmt.Sprintf("%%%ds%%s\n", pad(start-1))
 		for i := 1; i < len(lines); i++ {
-			fmt.Printf(formatString, " ", lines[i])
+			fmt.Fprintf(op.Out, formatString, " ", lines[i])
 		}
 	}
 }
@@ -183,40 +211,28 @@ func set(obj *allowedOptions, hasNoPrefix bool, param string) {
 		*obj.stringvalue = param
 	}
 	if obj.stringmap != nil {
-		var name string
-		var value string
-		switch {
-		case obj.long != "":
-			name = obj.long
-		case obj.short != "":
+		name := obj.long
+		if name == "" {
 			name = obj.short
 		}
-		// return error if no name given
-
+		var value string
 		if param != "" {
 			value = param
+		} else if hasNoPrefix {
+			value = "false"
 		} else {
-			if hasNoPrefix {
-				value = "false"
-			} else {
-				value = "true"
-			}
+			value = "true"
 		}
 		obj.stringmap[name] = value
 	}
-	if obj.stringslice != nil {
-		eachParam := strings.Split(param, ",")
-		*obj.stringslice = append(*obj.stringslice, eachParam...)
+	if obj.stringslice != nil && param != "" {
+		*obj.stringslice = append(*obj.stringslice, strings.Split(param, ",")...)
 	}
 	if obj.functionNoArgs != nil {
 		obj.functionNoArgs()
 	}
 	if obj.boolvalue != nil {
-		if hasNoPrefix {
-			*obj.boolvalue = false
-		} else {
-			*obj.boolvalue = true
-		}
+		*obj.boolvalue = !hasNoPrefix
 	}
 }
 
@@ -239,13 +255,13 @@ func (op *OptionParser) Command(cmd string, helptext string) {
 //   - a bool variable (in the form &bool) to hold a boolean value, or
 //   - a function in the form of func() or in the form of func(string) which gets called if the command line parameter is found.
 //
-// On panics if the user supplies is an type in its argument other the ones
+// On panics if the user supplies a type in its argument other than the ones
 // given above.
 //
 //	op := optionparser.NewOptionParser()
 //	op.On("-a", "--func", "call myfunc", myfunc)
 //	op.On("--bstring FOO", "set string to FOO", &somestring)
-//	op.On("-c", "set boolean option (try -no-c)", options)
+//	op.On("-c", "set boolean option (try --no-c)", options)
 //	op.On("-d", "--dlong VAL", "set option", options)
 //	op.On("-e", "--elong [VAL]", "set option with optional parameter", options)
 //	op.On("-f", "boolean option", &truefalse)
@@ -254,11 +270,11 @@ func (op *OptionParser) Command(cmd string, helptext string) {
 // and running the program with --help gives the following output:
 //
 //	go run main.go --help
-//	   Usage: [parameter] command
+//	Usage: [parameter] command
 //	   -h, --help                   Show this help
 //	   -a, --func                   call myfunc
 //	       --bstring=FOO            set string to FOO
-//	   -c                           set boolean option (try -no-c)
+//	   -c                           set boolean option (try --no-c)
 //	   -d, --dlong=VAL              set option
 //	   -e, --elong[=VAL]            set option with optional parameter
 //	   -f                           boolean option
@@ -273,10 +289,18 @@ func (op *OptionParser) On(a ...interface{}) {
 			if isOption(x) {
 				ret := splitOn(x)
 				if ret.short {
+					// check duplicates
+					if _, ok := op.short[ret.argument]; ok {
+						panic(fmt.Sprintf("short option -%s already registered", ret.argument))
+					}
 					// short argument ('-s')
 					op.short[ret.argument] = option
 					option.short = ret.argument
 				} else {
+					// check duplicates
+					if _, ok := op.long[ret.argument]; ok {
+						panic(fmt.Sprintf("long option --%s already registered", ret.argument))
+					}
 					// long argument ('--something')
 					op.long[ret.argument] = option
 					option.long = ret.argument
@@ -314,16 +338,25 @@ func (op *OptionParser) On(a ...interface{}) {
 
 // ParseFrom takes a slice of string arguments and interprets them. If it finds
 // an unknown option or a missing mandatory argument, it returns an error.
+// Note: this function expects args like os.Args (program name at index 0) and
+// starts parsing at index 1.
 func (op *OptionParser) ParseFrom(args []string) error {
 	i := 1
 	for i < len(args) {
 		switch {
 		// Users can pass -- to mark the end of flag parsing. This
 		// check must come first since isOption will treat -- as
-		// a malformed option.
+		// a (special) option boundary.
 		case args[i] == "--":
-			op.Extra = append(op.Extra, args[i+1:]...)
+			if i+1 < len(args) {
+				op.Extra = append(op.Extra, args[i+1:]...)
+			}
+			if op.showHelp {
+				op.Help()
+				return ErrHelp
+			}
 			return nil
+
 		case isOption(args[i]):
 			ret := splitOn(args[i])
 
@@ -335,19 +368,15 @@ func (op *OptionParser) ParseFrom(args []string) error {
 			}
 
 			if option == nil {
-				return fmt.Errorf("unknown option %s", ret.argument)
+				return fmt.Errorf("unknown option %q", args[i])
 			}
 
-			// the parameter in ret.param is only set by `splitOn()` when used with
-			// the equal sign: "--foo=bar". If the user gives a parameter with "--foo bar"
-			// it is not in ret.param. So we look at the next thing in our args array
-			// and if its not a parameter (starting with `-`), we take this as the perhaps
-			// optional parameter
-			if ret.param == "" && i < len(args)-1 && !isOption(args[i+1]) {
-				// next could be a parameter
+			// If no inline parameter was provided (no '=' or space in same token),
+			// check the next argument for a value if it doesn't look like an option.
+			consumedNext := false
+			if ret.param == "" && i+1 < len(args) && !isOption(args[i+1]) {
 				ret.param = args[i+1]
-				// delete this possible parameter from the args list
-				args = append(args[:i+1], args[i+2:]...)
+				consumedNext = true
 			}
 
 			if ret.param != "" {
@@ -356,7 +385,7 @@ func (op *OptionParser) ParseFrom(args []string) error {
 					set(option, ret.negate, ret.param)
 				} else {
 					// we've got a parameter but didn't expect one,
-					// so let's push it onto the stack
+					// so let's push it onto the extras
 					op.Extra = append(op.Extra, ret.param)
 					set(option, ret.negate, "")
 				}
@@ -365,17 +394,29 @@ func (op *OptionParser) ParseFrom(args []string) error {
 				if option.param != "" {
 					// parameter expected
 					if !option.optional {
-						// No parameter found but expected
-						return fmt.Errorf("parameter expected but none given %s", ret.argument)
+						return fmt.Errorf("missing required parameter for %q", args[i])
 					}
 				}
 				set(option, ret.negate, "")
 			}
+
+			if consumedNext {
+				i += 2
+			} else {
+				i++
+			}
+			continue
+
 		default:
 			// not an option, we push it onto the extra array
 			op.Extra = append(op.Extra, args[i])
 		}
 		i++
+	}
+
+	if op.showHelp {
+		op.Help()
+		return ErrHelp
 	}
 	return nil
 }
@@ -387,14 +428,17 @@ func (op *OptionParser) Parse() error {
 	return op.ParseFrom(os.Args)
 }
 
-// Help prints help text generated from the "On" commands
+// Help prints help text generated from the "On" commands to op.Out.
 func (op *OptionParser) Help() {
-	fmt.Println(op.Banner)
+	if op.Out == nil {
+		op.Out = os.Stdout
+	}
+	fmt.Fprintln(op.Out, op.Banner)
 	wd := op.Stop - op.Start
 	for _, o := range op.options {
 		short := o.short
 		long := o.long
-		if o.boolParameter {
+		if o.boolParameter && o.long != "" {
 			long = "[no-]" + o.long
 		}
 		if o.long != "" {
@@ -405,8 +449,7 @@ func (op *OptionParser) Help() {
 					long = fmt.Sprintf("%s=%s", o.long, o.param)
 				}
 			}
-		} else {
-			// short
+		} else { // short only
 			if o.param != "" {
 				if o.optional {
 					short = fmt.Sprintf("%s[=%s]", o.short, o.param)
@@ -427,30 +470,33 @@ func (op *OptionParser) Help() {
 			comma = ""
 		}
 		lines := wordwrap(o.helptext, wd)
-		formatAndOutput(op.Start, op.Stop, dashShort, short, comma, dashLong, long, lines)
+		op.formatAndOutput(op.Start, op.Stop, dashShort, short, comma, dashLong, long, lines)
 	}
 	if len(op.commands) > 0 {
-		fmt.Println("\nCommands")
+		fmt.Fprintln(op.Out, "\nCommands")
 		for _, cmd := range op.commands {
 			lines := wordwrap(cmd.helptext, wd)
-			formatAndOutput(op.Start, op.Stop, "", "", "", "", cmd.name, lines)
+			op.formatAndOutput(op.Start, op.Stop, "", "", "", "", cmd.name, lines)
 		}
 	}
 	if op.Coda != "" {
-		fmt.Println(op.Coda)
+		fmt.Fprintln(op.Out, op.Coda)
 	}
 }
 
 // NewOptionParser initializes the OptionParser struct with sane settings for
 // Banner, Start and Stop and adds a "-h", "--help" option for convenience.
 func NewOptionParser() *OptionParser {
-	a := &OptionParser{}
-	a.Extra = []string{}
-	a.Banner = "Usage: [parameter] command"
-	a.Start = 30
-	a.Stop = 79
-	a.short = map[string]*allowedOptions{}
-	a.long = map[string]*allowedOptions{}
-	a.On("-h", "--help", "Show this help", func() { a.Help(); os.Exit(0) })
+	a := &OptionParser{
+		Extra:  []string{},
+		Banner: " Usage: [parameter] command",
+		Start:  30,
+		Stop:   79,
+		short:  map[string]*allowedOptions{},
+		long:   map[string]*allowedOptions{},
+		Out:    os.Stdout,
+	}
+	// Register a help option that prints help and returns ErrHelp from Parse()/ParseFrom()
+	a.On("-h", "--help", "Show this help", func() { a.showHelp = true })
 	return a
 }

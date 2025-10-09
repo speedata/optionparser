@@ -1,6 +1,5 @@
 [![GoDoc](https://pkg.go.dev/badge/github.com/speedata/optionparser)](https://pkg.go.dev/github.com/speedata/optionparser)
 
-
 optionparser
 ============
 
@@ -37,30 +36,47 @@ where `arguments` is one of:
 Help usage
 ----------
 
-The options `-h` and `--help` are included by default. The example below output this on `cmd -h`:
+The options `-h` and `--help` are included by default.
+Starting with **v1.1.0**, calling `op.Parse()` or `op.ParseFrom()` with `--help` **no longer exits the program automatically**.
+Instead, `Parse()` prints the help text to standard output and returns the sentinel error `optionparser.ErrHelp`.
+This makes the package safer and easier to integrate in larger applications or libraries.
 
-    Usage: [awesome-options] <awesome-command>
-    -h, --help                   Show this help
-    -a, --func                   call myfunc
-        --bstring=FOO            set string to FOO
-    -c                           set boolean option (try -no-c)
-    -d, --dlong=VAL              set option
-    -e, --elong[=VAL]            set option with optional parameter
-    -f                           boolean option
+To emulate the previous behavior (exit after printing help), you can simply do:
 
-    Commands
-          y                      Run command y
-          z                      Run command z
+```go
+if errors.Is(err, optionparser.ErrHelp) {
+    os.Exit(0)
+}
+```
 
-    For more information or to contribute, visit https://github.com/speedata/optionparser.
+The example below shows the help output that appears when running `cmd -h`:
+
+```
+ Usage: [awesome-options] <awesome-command>
+ -h, --help                   Show this help
+ -a, --func                   call myfunc
+     --bstring=FOO            set string to FOO
+ -c                           set boolean option (try -no-c)
+ -d, --dlong=VAL              set option
+ -e, --elong[=VAL]            set option with optional parameter
+ -f                           boolean option
+
+ Commands
+       y                      Run command y
+       z                      Run command z
+
+ For more information or to contribute, visit https://github.com/speedata/optionparser.
+```
 
 Settings
 --------
 
-After calling  `op := optionparser.NewOptionParser()` you can set `op.Banner` and `op.Coda`. `op.Banner` customizes the first line of the help output. The default value is `Usage: [parameter] command`. By default, `op.Coda` is an empty string. Set a value for `op.Coda` if you want to add text at the end of the help output.
+After calling  `op := optionparser.NewOptionParser()` you can set `op.Banner` and `op.Coda`.
+`op.Banner` customizes the first line of the help output. The default value is `"Usage: [parameter] command"`.
+By default, `op.Coda` is an empty string. Set a value for `op.Coda` if you want to add text at the end of the help output.
 
-To control the first and last column of the help output, set `op.Start` and `op.Stop`. The default values are the integer values of 30 and 79.
-
+To control the first and last column of the help output, set `op.Start` and `op.Stop`.
+The default values are `30` and `79`.
 
 Example usage
 -------------
@@ -69,8 +85,10 @@ Example usage
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/speedata/optionparser"
 )
@@ -101,9 +119,14 @@ func main() {
 	op.Coda = "\nFor more information or to contribute, visit https://github.com/speedata/optionparser."
 
 	err := op.Parse()
+	if errors.Is(err, optionparser.ErrHelp) {
+		// Exit cleanly after showing help
+		os.Exit(0)
+	}
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	fmt.Printf("string `somestring' is now %q\n", somestring)
 	fmt.Printf("options %v\n", options)
 	fmt.Printf("-f %v\n", truefalse)
@@ -112,21 +135,19 @@ func main() {
 }
 ```
 
-and the output of `go run main.go -a --bstring foo -c -d somevalue -e x -f -g a,b,c y z`
+The output of `go run main.go -a --bstring foo -c -d somevalue -e x -f -g a,b,c y z` is:
 
-is:
-
-    myfunc called
-    string `somestring' is now "foo"
-    options map[c:true dlong:somevalue elong:x]
-    -f true
-    -g [a b c]
-    Extra: []string{"y", "z"}
-
-
+```
+myfunc called
+string `somestring' is now "foo"
+options map[c:true dlong:somevalue elong:x]
+-f true
+-g [a b c]
+Extra: []string{"y", "z"}
+```
 
 **State**: Actively maintained, and used in production. Without warranty, of course.<br>
-**Maturity level**: 5/5 (works well in all tested repositories, there will be no API change)<br>
+**Maturity level**: 5/5 (works well in all tested repositories, no breaking API changes expected)<br>
 **License**: Free software (MIT License)<br>
 **Installation**: Just run `go get github.com/speedata/optionparser`<br>
 **API documentation**: https://pkg.go.dev/github.com/speedata/optionparser<br>
@@ -134,4 +155,3 @@ is:
 **Repository**: https://github.com/speedata/optionparser<br>
 **Dependencies**: None<br>
 **Contribution**: We like to get any kind of feedback (success stories, bug reports, merge requests, ...)
-
