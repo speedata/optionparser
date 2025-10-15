@@ -10,17 +10,17 @@ import (
 // The parser should now catch the panic and return an error.
 func TestIssue8_FunctionCallbackPanic(t *testing.T) {
 	options := make(map[string]string)
-	
+
 	setOption := func(str string) {
 		// User's callback that would panic without bounds checking
 		a := strings.Split(str, "=")
 		// This line would panic if len(a) < 2
 		options[a[0]] = a[1]
 	}
-	
+
 	op := NewOptionParser()
 	op.On("--option=OPTION", "Set a specific option", setOption)
-	
+
 	// This is what the user ran: sp --option aa bb
 	// The parser should catch the panic and return an error
 	err := op.ParseFrom([]string{"prog", "--option", "aa", "bb"})
@@ -34,7 +34,7 @@ func TestIssue8_FunctionCallbackPanic(t *testing.T) {
 // TestIssue8_WithProperFormat tests that when the user provides the right format, it works
 func TestIssue8_WithProperFormat(t *testing.T) {
 	options := make(map[string]string)
-	
+
 	setOption := func(str string) {
 		a := strings.Split(str, "=")
 		if len(a) < 2 {
@@ -43,21 +43,21 @@ func TestIssue8_WithProperFormat(t *testing.T) {
 		}
 		options[a[0]] = a[1]
 	}
-	
+
 	op := NewOptionParser()
 	op.On("--option=OPTION", "Set a specific option", setOption)
-	
+
 	// User provides: sp --option key=value bb
 	err := op.ParseFrom([]string{"prog", "--option", "key=value", "bb"})
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
-	
+
 	// Check that it was parsed correctly
 	if options["key"] != "value" {
 		t.Errorf("Expected options[key]=value, got %q", options["key"])
 	}
-	
+
 	if len(op.Extra) != 1 || op.Extra[0] != "bb" {
 		t.Errorf("Expected Extra=[bb], got %v", op.Extra)
 	}
@@ -66,7 +66,7 @@ func TestIssue8_WithProperFormat(t *testing.T) {
 // TestIssue8_WithProperErrorHandling shows the recommended pattern
 func TestIssue8_WithProperErrorHandling(t *testing.T) {
 	options := make(map[string]string)
-	
+
 	setOption := func(str string) {
 		// Proper error handling in callback
 		a := strings.Split(str, "=")
@@ -77,22 +77,22 @@ func TestIssue8_WithProperErrorHandling(t *testing.T) {
 		}
 		options[a[0]] = a[1]
 	}
-	
+
 	op := NewOptionParser()
 	op.On("--option=OPTION", "Set a specific option", setOption)
-	
+
 	// User provides: sp --option aa bb
 	// This should not panic or error - the callback handles it gracefully
 	err := op.ParseFrom([]string{"prog", "--option", "aa", "bb"})
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
-	
+
 	// The option wasn't set because it didn't have the right format
 	if len(options) != 0 {
 		t.Errorf("Expected no options to be set, got %v", options)
 	}
-	
+
 	if len(op.Extra) != 1 || op.Extra[0] != "bb" {
 		t.Errorf("Expected Extra=[bb], got %v", op.Extra)
 	}
@@ -105,10 +105,10 @@ func TestIssue8_FunctionNoArgsPanic(t *testing.T) {
 		var slice []string
 		_ = slice[10] // index out of range
 	}
-	
+
 	op := NewOptionParser()
 	op.On("-x", "trigger panic", panicFunc)
-	
+
 	// The parser should catch the panic and return an error
 	err := op.ParseFrom([]string{"prog", "-x"})
 	if err == nil {

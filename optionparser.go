@@ -210,7 +210,7 @@ func set(obj *allowedOptions, hasNoPrefix bool, param string) (err error) {
 			err = fmt.Errorf("callback panic: %v", r)
 		}
 	}()
-	
+
 	if obj.function != nil {
 		obj.function(param)
 	}
