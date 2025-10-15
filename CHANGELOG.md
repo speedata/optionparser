@@ -9,7 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Nothing yet.
+- Panic recovery in user callback functions to prevent crashes from user code errors.
+
+### Fixed
+- Parser now catches panics in user callback functions (`func(string)` and `func()`) and returns them as errors instead of crashing the program (fixes #8).
 
 ---
 
