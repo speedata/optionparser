@@ -29,9 +29,11 @@ where `arguments` is one of:
  * `"Some text"`: The description text for the command line parameter
  * `&aboolean`: Set the given boolean to `true` if the argument is given, set to `false` if parameter is prefixed with `no-`, such as `--no-foo`.
  * `&astring`: Set the string to the value of the given parameter
- * `function`: Call the function. The function must have the signature `func()`.
+ * `function`: Call the function. The function can have signature `func()` or `func(string)` where the string parameter receives the option's value.
  * `map[string]string`: Set an entry of the map to the value of the given parameter and the key of the argument.
  * `[]string` Set the slice values to a comma separated list.
+
+**Note on callback functions**: When using `func(string)` callbacks, the function receives the parameter value as passed by the user. If your callback expects a specific format (e.g., `key=value`), make sure to validate the input and handle errors gracefully to avoid panics. Starting from v1.1.1, the parser will catch panics in callbacks and return them as errors, but it's still recommended to handle validation explicitly in your callback.
 
 Help usage
 ----------

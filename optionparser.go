@@ -203,7 +203,14 @@ func (op *OptionParser) formatAndOutput(start int, stop int, dashShort string, s
 	}
 }
 
-func set(obj *allowedOptions, hasNoPrefix bool, param string) {
+func set(obj *allowedOptions, hasNoPrefix bool, param string) (err error) {
+	// Recover from panics in user callbacks
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("callback panic: %v", r)
+		}
+	}()
+
 	if obj.function != nil {
 		obj.function(param)
 	}
@@ -234,6 +241,7 @@ func set(obj *allowedOptions, hasNoPrefix bool, param string) {
 	if obj.boolvalue != nil {
 		*obj.boolvalue = !hasNoPrefix
 	}
+	return nil
 }
 
 // Command defines optional arguments to the command line. These are written in
@@ -382,12 +390,16 @@ func (op *OptionParser) ParseFrom(args []string) error {
 			if ret.param != "" {
 				if option.param != "" {
 					// OK, we've got a parameter and we expect one
-					set(option, ret.negate, ret.param)
+					if err := set(option, ret.negate, ret.param); err != nil {
+						return err
+					}
 				} else {
 					// we've got a parameter but didn't expect one,
 					// so let's push it onto the extras
 					op.Extra = append(op.Extra, ret.param)
-					set(option, ret.negate, "")
+					if err := set(option, ret.negate, ""); err != nil {
+						return err
+					}
 				}
 			} else {
 				// no parameter found
@@ -397,7 +409,9 @@ func (op *OptionParser) ParseFrom(args []string) error {
 						return fmt.Errorf("missing required parameter for %q", args[i])
 					}
 				}
-				set(option, ret.negate, "")
+				if err := set(option, ret.negate, ""); err != nil {
+					return err
+				}
 			}
 
 			if consumedNext {
