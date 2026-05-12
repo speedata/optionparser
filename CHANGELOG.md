@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `GenerateCompletion(shell, programName, w)` generates shell completion scripts for bash, zsh and fish from the registered options and commands.
 - Panic recovery in user callback functions to prevent crashes from user code errors.
 
 ### Fixed

@@ -80,6 +80,43 @@ By default, `op.Coda` is an empty string. Set a value for `op.Coda` if you want 
 To control the first and last column of the help output, set `op.Start` and `op.Stop`.
 The default values are `30` and `79`.
 
+Shell completion
+----------------
+
+`GenerateCompletion(shell, programName, w)` writes a tab-completion script for
+`bash`, `zsh` or `fish` to the given `io.Writer`. The script is generated from
+the options and commands already registered on the parser, so a single source
+of truth stays in your `op.On(...)` and `op.Command(...)` calls.
+
+A common pattern is to expose this through a hidden flag and let packagers
+invoke it at build time:
+
+```go
+op.On("--generate-completion SHELL", "Print shell completion script (bash, zsh or fish) to stdout and exit", func(shell string) {
+    if err := op.GenerateCompletion(shell, "myprog", os.Stdout); err != nil {
+        log.Fatal(err)
+    }
+    os.Exit(0)
+})
+```
+
+End users (or your installer) then run, for example:
+
+```
+myprog --generate-completion=zsh  > ~/.zsh/completions/_myprog
+myprog --generate-completion=bash > /usr/share/bash-completion/completions/myprog
+myprog --generate-completion=fish > ~/.config/fish/completions/myprog.fish
+```
+
+The generated scripts handle:
+
+- short and long flag forms,
+- the `--no-` toggle form for options registered with a `--no-` prefix,
+- registered commands as positional completions, and
+- file completion for any option that takes a parameter (this is a
+  best-effort default because the parser has no knowledge of value
+  semantics — a `--port` option will offer file names too).
+
 Example usage
 -------------
 
