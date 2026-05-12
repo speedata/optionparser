@@ -79,6 +79,7 @@ func TestZshCompletionContents(t *testing.T) {
 		"PORT:_files",
 		"'run:Run the thing'",
 		"'clean:Clean files'",
+		`"${funcstack[1]-}" = "_sp"`,
 		"compdef _sp sp",
 	} {
 		if !strings.Contains(s, want) {

@@ -205,7 +205,11 @@ func (op *OptionParser) writeZshCompletion(prog string, w io.Writer) error {
     esac
 }
 
-if (( $+functions[compdef] )); then
+if [ "${funcstack[1]-}" = "%s" ]; then
+    # Loaded via fpath/autoload: run the actual completion function.
+    %s "$@"
+elif (( $+functions[compdef] )); then
+    # Sourced directly: register with the completion system.
     compdef %s %s
 fi
 `,
@@ -214,6 +218,8 @@ fi
 		strings.Join(cmdLines, "\n"),
 		strings.Join(specs, " \\\n        "),
 		prog,
+		fn,
+		fn,
 		fn,
 		prog,
 	)
